@@ -1,5 +1,7 @@
 <?php namespace Groff\Command;
 
+use Groff\Command\Exception\ObjectDoesNotExistException;
+
 abstract class Command
 {
 
@@ -12,6 +14,13 @@ abstract class Command
     /** @var \Groff\Command\EventHost */
     private $eventHost;
 
+    /** @var \Illuminate\Database\Capsule */
+    private $db;
+
+    private $rawOptions = false;
+
+    protected $description = "";
+
     /**
      * Provides default instantiation of dependencies and allows them to
      * be overridden for unit testing. Calls constructed hook for
@@ -23,9 +32,9 @@ abstract class Command
      */
     public function __construct(
 //                                                                                                                      @formatter:off
-        ArgumentParser   $parser    = null,
-        OptionCollection $options   = null,
-        EventInterface   $eventHost = null
+        ArgumentParser $parser = null,
+        OptionCollection $options = null,
+        EventInterface $eventHost = null
 //                                                                                                                      @formatter:on
     )
     {
@@ -92,9 +101,11 @@ abstract class Command
 
         $this->addOptions();
 
-        $this->addOption(new Option("h", false, "Prints this usage information.", "help"));
-
         $this->notify("options added");
+
+        $this->populateOptions();
+
+        $this->addHelpCommand();
 
         $this->populateOptions();
 
@@ -106,11 +117,29 @@ abstract class Command
 
         $this->notify("pre main");
 
-        $status = $this->main();
+        try {
+            $status = $this->main();
+        } catch (\Exception $e) {
+            $status = $this->catchMainException($e);
+        }
 
         $this->notify("shutdown");
 
         return $status;
+    }
+
+    private function catchMainException($e)
+    {
+        echo "An Error Occured \n";
+        echo "    " . $e->getMessage();
+        echo "\n";
+        $this->notify("output");
+        return 1;
+    }
+
+    protected function addHelpCommand()
+    {
+        $this->addOption(new Option("h", false, "Prints this usage information.", "help"));
     }
 
     /**
@@ -133,9 +162,30 @@ abstract class Command
      */
     final public function option($query)
     {
-        $option = $this->options->find($query);
+        try {
+            $option = $this->options->find($query);
+            $value  = $option->getValue();
 
-        return $option->getValue();
+        } catch (ObjectDoesNotExistException $e) {
+            $value = false;
+        }
+
+        return $value;
+    }
+
+    final public function argument($index)
+    {
+        return $this->parser->getArgument($index);
+    }
+
+    final public function setDb($db)
+    {
+        $this->db = $db;
+    }
+
+    final public function db()
+    {
+        return $this->db;
     }
 
     /**
@@ -175,11 +225,20 @@ abstract class Command
      *
      * @return array
      */
-    protected function provideFlatOptions()
+    protected function getRawOptions()
     {
         global $argv;
 
-        return $argv;
+        if (!is_array($this->rawOptions)) {
+            $this->setRawOptions($argv);
+        }
+
+        return $this->rawOptions;
+    }
+
+    protected function setRawOptions($rawOptions)
+    {
+        $this->rawOptions = $rawOptions;
     }
 
     /**
@@ -187,7 +246,7 @@ abstract class Command
      */
     private function populateOptions()
     {
-        $flatOptions = $this->provideFlatOptions();
+        $flatOptions = $this->getRawOptions();
 
         $this->parser->parseInput($flatOptions);
 
@@ -199,15 +258,23 @@ abstract class Command
         }
     }
 
+    public function getDescription()
+    {
+        return $this->description;
+    }
+
     /**
      * Prints help output
      *
      * @return int Status code
      */
-    private function printHelp()
+    final protected function printHelp()
     {
         $script = $this->parser->getScriptName();
-        echo "Usage: [options] $script \n\n";
+
+        $this->printUsage($script);
+
+        $this->printDescription();
 
         /** @var $option Option */
         foreach ($this->options as $option) {
@@ -221,6 +288,19 @@ abstract class Command
         $this->notify("shutdown");
 
         return 0;
+    }
+
+    protected function printDescription()
+    {
+        if (!empty($this->description)) {
+            echo "    " . $this->description;
+        }
+        echo "\n";
+    }
+
+    protected function printUsage($scriptName)
+    {
+        echo "Usage: $scriptName arguments [options] \n";
     }
 
 } 
