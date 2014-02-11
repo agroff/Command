@@ -45,7 +45,7 @@ class ArgumentParser
             }
 
             if (!is_array($parsed[$currentOption])) {
-                $parsed[$currentOption] = [$parsed[$currentOption]];
+                $parsed[$currentOption] = array($parsed[$currentOption]);
             }
             $parsed[$currentOption][] = $option;
         }
