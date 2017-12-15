@@ -26,6 +26,8 @@ class ArgumentParser
         $currentOption  = false;
         $optionsStarted = false;
 
+        $this->arguments = array();
+
         foreach ($flatOptions as $option) {
             if (preg_match('/^[-][-]?/', $option)) {
                 $optionsStarted         = true;
