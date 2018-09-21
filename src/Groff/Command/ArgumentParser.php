@@ -71,7 +71,7 @@ class ArgumentParser
 
     public function getArgument($index = 0)
     {
-        return $this->arguments[$index];
+        return isset($this->arguments[$index]) ? $this->arguments[$index] : null;
     }
 
     public function getArguments()

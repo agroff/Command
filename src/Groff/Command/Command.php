@@ -107,8 +107,6 @@ abstract class Command
 
         $this->addHelpCommand();
 
-        $this->populateOptions();
-
         $this->notify("options available");
 
         if ($this->option("help")) {
